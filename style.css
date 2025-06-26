@@ -1,0 +1,113 @@
+ /* #themeSidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 160px;
+      height: 100%;
+      background: #111;
+      border-right: 2px solid #0ff;
+      padding-top: 20px;
+      z-index: 1000;
+    }
+    #themeSidebar h3 {
+      text-align: center;
+      color: #0ff;
+      margin-bottom: 16px;
+      font-size: 1.2rem;
+    }
+    #themeSidebar ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    #themeSidebar li {
+      padding: 10px;
+      text-align: center;
+      color: #fff;
+      cursor: pointer;
+      border-bottom: 1px solid #222;
+      transition: 0.3s;
+    }
+    #themeSidebar li:hover {
+      background: #0ff2;
+      color: #0ff;
+    }
+    main {
+      margin-left: 160px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    } */
+
+
+
+    #themeSidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200px;
+      height: 100%;
+      background: #111;
+      border-right: 2px solid #0ff;
+      padding-top: 20px;
+      z-index: 1000;
+   font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+   font-weight: 500;
+   font-size: 20px;
+    }
+    #themeSidebar h3 {
+      text-align: left;
+      color: #0ff;
+      margin-bottom: 16px;
+      margin-left: 20px;
+      font-size: 1.2rem;
+    }
+    #themeSidebar ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    #themeSidebar li {
+      padding: 10px;
+      text-align: left;
+      color: #fff;
+      cursor: pointer;
+      border-bottom: 1px solid #222;
+      transition: 0.3s;
+      margin-left: 10px;
+
+    }
+    #themeSidebar li:hover {
+      background: #0ff2;
+      color: #0ff;
+    }
+    main {
+      margin-left: 160px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* for the reset button*/
+    #resetButton {
+
+  margin-top: 12px;
+  margin-left:12px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-family: 'Orbitron', sans-serif;
+  background: #f00;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 10px #f004;
+  transition: background 0.3s;
+  text-align:left;
+}
+
+#resetButton:hover {
+  background: #c00;
+}
