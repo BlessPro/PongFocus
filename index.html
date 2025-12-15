@@ -22,6 +22,22 @@
 
   </div>
 
+  <section id="modePanel">
+    <div class="mode-row">
+      <button id="playLocalBtn">Play Local</button>
+      <button id="playOnlineBtn">Play Online</button>
+      <span id="netStatusLabel">Offline</span>
+    </div>
+    <div id="onlinePanel" class="hidden">
+      <input id="nameInput" type="text" placeholder="Your name" />
+      <input id="roomInput" type="text" placeholder="Room code (or leave blank to create)" />
+      <button id="createRoomBtn">Create Room</button>
+      <button id="joinRoomBtn">Join Room</button>
+      <button id="readyBtn" disabled>Ready</button>
+      <span id="roomCodeBadge"></span>
+    </div>
+  </section>
+
   <main>
     <h1>🚀 Pong Game</h1>
     <canvas id="pong" width="800" height="400"></canvas>
@@ -30,6 +46,22 @@
     <audio id="hitSound" src="hit.wav" preload="auto"></audio>
     <audio id="scoreSound" src="score.wav" preload="auto"></audio>
   </main>
+  <aside id="leaderboardPanel">
+    <h3>Leaderboard</h3>
+    <div id="liveScores">
+      <div class="score-line">
+        <span class="label">P1</span>
+        <span id="liveP1" class="value">0</span>
+      </div>
+      <div class="score-line">
+        <span class="label">P2</span>
+        <span id="liveP2" class="value">0</span>
+      </div>
+      <div id="serveHint">Press Space or Enter to serve</div>
+    </div>
+    <div class="history-title">Match Wins</div>
+    <ul id="leaderboardList"></ul>
+  </aside>
 <!-- 
  <div id="themeSidebar">
     <h3>Themes</h3>
