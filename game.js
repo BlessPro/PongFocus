@@ -155,6 +155,9 @@ function recordWin(name) {
   leaderboardData[name] = (leaderboardData[name] || 0) + 1;
   saveLeaderboard();
   renderLeaderboard();
+  if (isOnline && isHost) {
+    sendLeaderboard();
+  }
 }
 
 function renderLiveScores() {
@@ -360,6 +363,9 @@ function handleNetMessage(msg) {
       peerReady = false;
       setNetStatus("Connected - click Ready");
       renderLiveScores();
+      if (isHost) {
+        sendLeaderboard();
+      }
       break;
     case "ready":
       peerReady = true;
@@ -395,6 +401,13 @@ function handleNetMessage(msg) {
     case "state":
       if (!isHost) {
         applyNetState(msg.state);
+      }
+      break;
+    case "leaderboard":
+      if (msg.data) {
+        leaderboardData = msg.data;
+        saveLeaderboard();
+        renderLeaderboard();
       }
       break;
     case "pause_toggle":
@@ -472,6 +485,11 @@ function sendState() {
       currentTheme: currentThemeKey,
     },
   });
+}
+
+function sendLeaderboard() {
+  if (!isOnline || !isHost) return;
+  sendNet({ type: "leaderboard", data: leaderboardData });
 }
 
 function pauseGameForDisconnect() {
