@@ -1,9 +1,42 @@
-// Minimal relay server for online Pong.
+// Minimal relay + static file server for online Pong.
 // Run: `npm install ws` then `node server.js` (defaults to port 3001).
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 3001;
-const wss = new WebSocket.Server({ port: PORT });
+
+const mimeTypes = {
+  ".html": "text/html",
+  ".js": "application/javascript",
+  ".css": "text/css",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".wav": "audio/wav",
+  ".mp3": "audio/mpeg",
+  ".ico": "image/x-icon",
+};
+
+const server = http.createServer((req, res) => {
+  let filePath = req.url.split("?")[0];
+  if (filePath === "/") filePath = "/index.html";
+  const resolvedPath = path.join(__dirname, filePath);
+
+  fs.readFile(resolvedPath, (err, data) => {
+    if (err) {
+      res.writeHead(err.code === "ENOENT" ? 404 : 500);
+      return res.end("Not found");
+    }
+    const ext = path.extname(resolvedPath).toLowerCase();
+    const type = mimeTypes[ext] || "application/octet-stream";
+    res.writeHead(200, { "Content-Type": type });
+    res.end(data);
+  });
+});
+
+const wss = new WebSocket.Server({ server });
 
 const rooms = new Map(); // roomCode -> { host, guest, hostName, guestName }
 
@@ -112,4 +145,6 @@ wss.on("connection", (ws) => {
   ws.on("close", () => cleanup(ws));
 });
 
-console.log(`Pong relay server listening on ws://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Pong server listening on http://localhost:${PORT} (WS on same port)`);
+});

@@ -8,7 +8,12 @@ const themes = {
 };
 
 // Network setup
-const WS_URL = "ws://localhost:3001";
+const WS_URL = (() => {
+  const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+  if (isLocal) return "ws://localhost:3001";
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${location.host}`;
+})();
 
 // Mode selection
 let gameMode = localStorage.getItem("pongMode");
