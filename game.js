@@ -116,6 +116,9 @@ const liveP1 = document.getElementById("liveP1");
 const liveP2 = document.getElementById("liveP2");
 const leaderboardList = document.getElementById("leaderboardList");
 const serveHint = document.getElementById("serveHint");
+const statCurrent = document.getElementById("statCurrent");
+const statPast = document.getElementById("statPast");
+const statTime = document.getElementById("statTime");
 
 const leaderboardStorageKey = "pongLeaderboard";
 let leaderboardData = loadLeaderboard();
@@ -168,6 +171,18 @@ function recordWin(name) {
 function renderLiveScores() {
   if (liveP1) liveP1.textContent = `${player1Name}: ${playerScore}`;
   if (liveP2) liveP2.textContent = `${player2Name}: ${aiScore}`;
+}
+
+function renderStats(stats) {
+  if (!stats) return;
+  if (statCurrent) statCurrent.textContent = stats.current ?? 0;
+  if (statPast) statPast.textContent = stats.past ?? 0;
+  if (statTime) {
+    const secs = Math.round(stats.totalSeconds || 0);
+    const mins = Math.floor(secs / 60);
+    const rem = secs % 60;
+    statTime.textContent = mins ? `${mins}m ${rem}s` : `${secs}s`;
+  }
 }
 
 function updateServeHint() {
@@ -414,6 +429,9 @@ function handleNetMessage(msg) {
         saveLeaderboard();
         renderLeaderboard();
       }
+      break;
+    case "stats":
+      renderStats(msg.stats);
       break;
     case "pause_toggle":
       if (isHost) {

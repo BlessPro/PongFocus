@@ -172,6 +172,28 @@
   color: #0ff;
   font-size: 0.9rem;
 }
+#statsPanel {
+  margin-left: 220px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #0a0a0a;
+  border: 1px solid #0ff3;
+  border-radius: 8px;
+  color: #0ff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  display: inline-block;
+}
+.stat-line {
+  margin-bottom: 4px;
+}
+.stat-line:last-child {
+  margin-bottom: 0;
+}
+.stat-line .label {
+  color: #7ff;
+  margin-right: 4px;
+}
 
 /* Leaderboard - terminal green vibe */
 #leaderboardPanel {

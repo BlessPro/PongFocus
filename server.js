@@ -19,6 +19,29 @@ const mimeTypes = {
   ".ico": "image/x-icon",
 };
 
+const statsPath = path.join(__dirname, "stats.json");
+let stats = { current: 0, past: 0, totalSeconds: 0 };
+
+try {
+  const saved = JSON.parse(fs.readFileSync(statsPath, "utf8"));
+  stats = { ...stats, ...saved };
+} catch (err) {
+  // ignore missing file
+}
+
+function saveStats() {
+  fs.writeFile(statsPath, JSON.stringify(stats), () => {});
+}
+
+function broadcastStats() {
+  const payload = JSON.stringify({ type: "stats", stats });
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
   let filePath = req.url.split("?")[0];
   if (filePath === "/") filePath = "/index.html";
@@ -53,6 +76,14 @@ function makeRoomCode() {
 function cleanup(ws) {
   const code = ws.roomCode;
   const role = ws.role;
+  if (ws.sessionStart) {
+    const elapsed = Math.max(0, Date.now() - ws.sessionStart) / 1000;
+    stats.totalSeconds += elapsed;
+  }
+  if (stats.current > 0) stats.current -= 1;
+  stats.past += 1;
+  saveStats();
+  broadcastStats();
   if (!code) return;
   const room = rooms.get(code);
   if (!room) return;
@@ -71,6 +102,11 @@ function cleanup(ws) {
 }
 
 wss.on("connection", (ws) => {
+  stats.current += 1;
+  ws.sessionStart = Date.now();
+  saveStats();
+  broadcastStats();
+
   ws.on("message", (raw) => {
     let msg;
     try {
@@ -100,6 +136,7 @@ wss.on("connection", (ws) => {
           role: "host",
           hostName: msg.name || "Host",
         });
+        broadcastStats();
         break;
       }
       case "join_room": {
@@ -124,6 +161,7 @@ wss.on("connection", (ws) => {
           hostName: room.hostName || "Host",
         });
         send(room.host, { type: "peer_joined", name: room.guestName });
+        broadcastStats();
         break;
       }
       case "ready":
