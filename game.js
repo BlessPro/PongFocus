@@ -14,6 +14,12 @@ const WS_URL = (() => {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${location.host}`;
 })();
+// Network smoothing settings
+const NET_TICK = 30;
+const NET_SEND_INTERVAL = 1000 / NET_TICK;
+const NET_INTERP_DELAY = 100;
+const NET_EXTRAP_LIMIT = 120;
+const NET_BUFFER_MAX = 20;
 
 // Mode selection
 let gameMode = localStorage.getItem("pongMode");
@@ -46,6 +52,11 @@ let nameInput = null;
 let roomInput = null;
 let hasNetState = false;
 let remoteInput = { up: false, down: false };
+let netStateBuffer = [];
+let lastNetSend = 0;
+let netSeq = 0;
+let guestPaddleY = 0;
+let guestPaddleInitialized = false;
 
 if (gameMode === "multiplayer") {
   const storedP1 = localStorage.getItem("pongP1Name");
@@ -97,6 +108,8 @@ let AI_SPEED = 3.2 * difficultyFactor;
 
 let playerY = (canvas.height - PADDLE_HEIGHT) / 2;
 let aiY = (canvas.height - PADDLE_HEIGHT) / 2;
+guestPaddleY = aiY;
+guestPaddleInitialized = true;
 
 let ballX = canvas.width / 2 - BALL_SIZE / 2;
 let ballY = canvas.height / 2 - BALL_SIZE / 2;
@@ -305,6 +318,14 @@ function setNetStatus(text) {
   if (netStatusLabel) netStatusLabel.textContent = text;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 function connectAndSend(initialMessage) {
   disconnectOnline();
   setNetStatus("Connecting...");
@@ -342,6 +363,8 @@ function disconnectOnline() {
   selfReady = false;
   hasNetState = false;
   remoteInput = { up: false, down: false };
+  netStateBuffer = [];
+  guestPaddleInitialized = false;
   roomCodeBadge && (roomCodeBadge.textContent = "");
 }
 
@@ -364,6 +387,7 @@ function handleNetMessage(msg) {
       renderLiveScores();
       paused = true;
       resetBall(1);
+      netStateBuffer = [];
       break;
     case "room_joined":
       isOnline = true;
@@ -377,6 +401,7 @@ function handleNetMessage(msg) {
       renderLiveScores();
       paused = true;
       resetBall(-1);
+      netStateBuffer = [];
       break;
     case "peer_joined":
       player2Name = msg.name || "Guest";
@@ -420,7 +445,7 @@ function handleNetMessage(msg) {
       break;
     case "state":
       if (!isHost) {
-        applyNetState(msg.state);
+        queueNetState(msg.state);
       }
       break;
     case "leaderboard":
@@ -436,7 +461,7 @@ function handleNetMessage(msg) {
     case "pause_toggle":
       if (isHost) {
         togglePause();
-        sendState();
+        sendState(true);
       }
       break;
     case "peer_left":
@@ -462,11 +487,83 @@ function sendOnlineInput() {
   });
 }
 
+function queueNetState(state) {
+  if (!state) return;
+  const now = performance.now();
+  netStateBuffer.push({ t: now, state });
+  if (netStateBuffer.length > NET_BUFFER_MAX) {
+    netStateBuffer.shift();
+  }
+  hasNetState = true;
+  if (!guestPaddleInitialized) {
+    guestPaddleY = state.aiY;
+    guestPaddleInitialized = true;
+  }
+}
+
+function interpolateState(a, b, t) {
+  return {
+    playerY: lerp(a.playerY, b.playerY, t),
+    aiY: lerp(a.aiY, b.aiY, t),
+    ballX: lerp(a.ballX, b.ballX, t),
+    ballY: lerp(a.ballY, b.ballY, t),
+    ballVX: lerp(a.ballVX, b.ballVX, t),
+    ballVY: lerp(a.ballVY, b.ballVY, t),
+    playerScore: b.playerScore,
+    aiScore: b.aiScore,
+    waitingForServe: b.waitingForServe,
+    pendingServeDirection: b.pendingServeDirection,
+    gameOver: b.gameOver,
+    paused: b.paused,
+    currentTheme: b.currentTheme,
+  };
+}
+
+function getInterpolatedNetState() {
+  if (!netStateBuffer.length) return null;
+  const now = performance.now();
+  const renderTime = now - NET_INTERP_DELAY;
+
+  for (let i = 0; i < netStateBuffer.length - 1; i += 1) {
+    const a = netStateBuffer[i];
+    const b = netStateBuffer[i + 1];
+    if (a.t <= renderTime && b.t >= renderTime) {
+      const span = b.t - a.t;
+      const t = span > 0 ? (renderTime - a.t) / span : 0;
+      return interpolateState(a.state, b.state, t);
+    }
+  }
+
+  const first = netStateBuffer[0];
+  if (renderTime < first.t) {
+    return first.state;
+  }
+
+  const last = netStateBuffer[netStateBuffer.length - 1];
+  const prev = netStateBuffer[netStateBuffer.length - 2];
+  const dt = Math.min(NET_EXTRAP_LIMIT, renderTime - last.t);
+  if (dt > 0 && prev && last.t > prev.t) {
+    const span = last.t - prev.t;
+    const vx = (last.state.ballX - prev.state.ballX) / span;
+    const vy = (last.state.ballY - prev.state.ballY) / span;
+    return {
+      ...last.state,
+      ballX: last.state.ballX + vx * dt,
+      ballY: last.state.ballY + vy * dt,
+    };
+  }
+  return last.state;
+}
+
 function applyNetState(state) {
   if (!state) return;
   hasNetState = true;
   playerY = state.playerY;
-  aiY = state.aiY;
+  if (isOnline && !isHost) {
+    aiY = guestPaddleY;
+  } else {
+    aiY = state.aiY;
+  }
   ballX = state.ballX;
   ballY = state.ballY;
   ballVX = state.ballVX;
@@ -488,8 +585,27 @@ function applyNetState(state) {
   }
 }
 
-function sendState() {
+function applyInterpolatedNetState() {
+  const state = getInterpolatedNetState();
+  if (!state) return;
+  applyNetState(state);
+}
+
+function updateGuestPrediction() {
+  if (!isOnline || isHost || paused || gameOver) return;
+  const speed = 6;
+  if (keys["KeyW"] || keys["ArrowUp"]) guestPaddleY -= speed;
+  if (keys["KeyS"] || keys["ArrowDown"]) guestPaddleY += speed;
+  guestPaddleY = clamp(guestPaddleY, 0, canvas.height - PADDLE_HEIGHT);
+  aiY = guestPaddleY;
+}
+
+function sendState(force = false) {
   if (!isOnline || !isHost) return;
+  const now = performance.now();
+  if (!force && now - lastNetSend < NET_SEND_INTERVAL) return;
+  lastNetSend = now;
+  netSeq += 1;
   sendNet({
     type: "state",
     state: {
@@ -506,6 +622,8 @@ function sendState() {
       gameOver,
       paused,
       currentTheme: currentThemeKey,
+      seq: netSeq,
+      ts: Date.now(),
     },
   });
 }
@@ -524,7 +642,7 @@ function pauseGameForDisconnect() {
 function togglePause() {
   paused = !paused;
   if (isOnline && isHost) {
-    sendState();
+    sendState(true);
   }
 }
 
@@ -549,7 +667,7 @@ function startOnlineMatch() {
     role: "guest",
     names: { p1: player1Name, p2: player2Name },
   });
-  sendState();
+  sendState(true);
 }
 
 let keys = {};
@@ -705,7 +823,7 @@ function resetBall(direction) {
   waitingForServe = true;
   updateServeHint();
   if (isOnline && isHost) {
-    sendState();
+    sendState(true);
   }
 }
 
@@ -718,12 +836,17 @@ function startServe() {
   paused = false;
   updateServeHint();
   if (isOnline && isHost) {
-    sendState();
+    sendState(true);
   }
 }
 
 function gameLoop() {
-  update();
+  if (isOnline && !isHost) {
+    applyInterpolatedNetState();
+    updateGuestPrediction();
+  } else {
+    update();
+  }
   draw();
   requestAnimationFrame(gameLoop);
 }
